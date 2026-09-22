@@ -1,0 +1,8 @@
+.env
+backend/.env
+firebase-service-account.json
+backend/*.db
+__pycache__/
+*.py[cod]
+node_modules/
+dist/

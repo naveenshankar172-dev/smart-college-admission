@@ -1,0 +1,3 @@
+import type { ApplicationStatus, Status } from '../types'
+export const statusLabel = (status: Status | ApplicationStatus) => ({ verified: 'Verified', pending: 'Pending', 'manual-review': 'Manual Review', rejected: 'Rejected', missing: 'Missing', draft: 'Draft', submitted: 'Submitted', 'under-verification': 'Under Verification', approved: 'Approved' }[status] ?? status)
+export const statusIcon = (status: Status | ApplicationStatus) => ({ verified: '✓', pending: '◷', 'manual-review': '⚠', rejected: '✕', missing: '📄', draft: '◷', submitted: '✓', 'under-verification': '◷', approved: '✓' }[status] ?? '•')
