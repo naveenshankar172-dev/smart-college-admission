@@ -2,7 +2,13 @@
 
 An integrated admission, document verification, scholarship screening and RPA automation platform implemented as a functional full-stack academic prototype.
 
-The system combines a React/TypeScript frontend, FastAPI REST API, SQLite persistence, Firebase Authentication/Google Sign-In support, local OCR services, configurable scholarship screening, administrator review and a UiPath-compatible document-processing contract.
+The system combines a React/TypeScript frontend, FastAPI REST API, SQLite persistence, local demo authentication, local OCR services, configurable scholarship screening, administrator review and a UiPath-compatible document-processing contract.
+
+## Local demo authentication
+
+This project uses the FastAPI development authentication path for localhost testing. The app is explicitly configured with `AUTH_MODE=development` and `VITE_AUTH_MODE=development` in the local `.env` file so demo login uses the existing student email/password records instead of Firebase Google sign-in.
+
+Do not enable this mode for production. It is intended only for local development and classroom demos.
 
 ## Quick Start
 

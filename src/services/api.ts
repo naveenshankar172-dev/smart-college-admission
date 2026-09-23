@@ -1,10 +1,8 @@
 import { applications as mockApplications, dashboardStats, notifications as mockNotifications, rpaStatus } from '../data/mockData'
 import type { ApiScholarship, ApiScholarshipApplication, Application, DashboardStatistics, Document, EligibilityResult, Notification, RPAStatus, Scholarship, ScholarshipApplication, Student, User } from '../types'
 import { getCurrentStudentId } from './session'
-import { firebaseAuth } from './firebase'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api').replace(/\/$/, '')
-const DEVELOPMENT_AUTH_ENABLED = import.meta.env.VITE_AUTH_MODE === 'development'
 
 export class ApiError extends Error {
   status: number
@@ -20,12 +18,19 @@ interface BackendScholarship { id: number; name: string; scheme_name?: string; d
 interface BackendScholarshipApplication { id: number; student_id: number; scholarship_id: number; eligibility_status: string; verification_status: string; application_status: string; remarks?: string; applied_at?: string; updated_at?: string; submitted_at?: string }
 interface BackendEligibilityResult { student_id: number; scholarship_id: number; eligibility_status: string; matched_rules: string[]; unmatched_rules: string[]; missing_information: string[]; required_documents: string[]; available_documents: string[]; missing_documents: string[]; remarks: string }
 
+async function fetchWithLocalSession(url: string, options: RequestInit = {}, includeJsonContentType = true): Promise<Response> {
+  const headers = new Headers(options.headers)
+  if (includeJsonContentType && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+
+  const sessionId = window.localStorage.getItem('admitflow.studentId')
+  if (sessionId && !headers.has('X-Student-ID')) headers.set('X-Student-ID', sessionId)
+
+  return fetch(url, { ...options, headers })
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response
-  const sessionId = window.localStorage.getItem('admitflow.studentId')
-  const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : ''
-  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : DEVELOPMENT_AUTH_ENABLED && sessionId ? { 'X-Student-ID': sessionId } : {}
-  try { response = await fetch(`${API_BASE_URL}${path}`, { headers: { 'Content-Type': 'application/json', ...authHeaders, ...(options?.headers ?? {}) }, ...options }) } catch { throw new ApiError('The backend is unavailable. Start FastAPI and try again.', 0) }
+  try { response = await fetchWithLocalSession(`${API_BASE_URL}${path}`, options) } catch (error) { if (error instanceof ApiError) throw error; throw new ApiError('The backend is unavailable. Start FastAPI and try again.', 0) }
   if (!response.ok) { let detail = `Request failed with status ${response.status}`; try { const body = await response.json() as { detail?: string }; detail = body.detail ?? detail } catch { /* response may not contain JSON */ } console.error('API request failed', { path, status: response.status, detail }); throw new ApiError(detail, response.status) }
   return response.json() as Promise<T>
 }
@@ -57,8 +62,8 @@ export const api = {
   async getDocuments(applicationId?: number): Promise<Document[]> { if (applicationId === undefined) return this.getStudentDocuments(); const result = await request<BackendDocument[]>(`/documents?application_id=${applicationId}`); return result.map(mapDocument) },
   async getStudentDocuments(studentId = getCurrentStudentId()): Promise<Document[]> { const result = await request<BackendDocument[]>(`/documents/student/${studentId}`); return result.map(mapDocument) },
   async getAllDocuments(): Promise<Document[]> { const result = await request<BackendDocument[]>('/documents'); return result.map(mapDocument) },
-  async uploadDocumentFile(studentId: number, documentType: string, file: File): Promise<Document> { const form = new FormData(); form.append('student_id', String(studentId)); form.append('document_type', documentType); form.append('file', file); let response: Response; const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : ''; const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : DEVELOPMENT_AUTH_ENABLED ? { 'X-Student-ID': String(studentId) } : {}; try { response = await fetch(`${API_BASE_URL}/documents/upload`, { method: 'POST', headers, body: form }) } catch { throw new ApiError('The backend is unavailable. Start FastAPI and try again.', 0) } if (!response.ok) { let detail = `Upload failed with status ${response.status}`; try { const body = await response.json() as { detail?: string }; detail = body.detail ?? detail } catch { /* response may not contain JSON */ } throw new ApiError(detail, response.status) } return mapDocument(await response.json() as BackendDocument) },
-  async deleteDocument(id: string | number): Promise<void> { const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : ''; const sessionId = window.localStorage.getItem('admitflow.studentId'); const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : DEVELOPMENT_AUTH_ENABLED && sessionId ? { 'X-Student-ID': sessionId } : {}; const response = await fetch(`${API_BASE_URL}/documents/${id}`, { method: 'DELETE', headers }); if (!response.ok) { let detail = `Delete failed with status ${response.status}`; try { const body = await response.json() as { detail?: string }; detail = body.detail ?? detail } catch { /* response may not contain JSON */ } throw new ApiError(detail, response.status) } },
+  async uploadDocumentFile(studentId: number, documentType: string, file: File): Promise<Document> { const form = new FormData(); form.append('student_id', String(studentId)); form.append('document_type', documentType); form.append('file', file); let response: Response; try { response = await fetchWithLocalSession(`${API_BASE_URL}/documents/upload`, { method: 'POST', body: form }, false) } catch { throw new ApiError('The backend is unavailable. Start FastAPI and try again.', 0) } if (!response.ok) { let detail = `Upload failed with status ${response.status}`; try { const body = await response.json() as { detail?: string }; detail = body.detail ?? detail } catch { /* response may not contain JSON */ } throw new ApiError(detail, response.status) } return mapDocument(await response.json() as BackendDocument) },
+  async deleteDocument(id: string | number): Promise<void> { const response = await fetchWithLocalSession(`${API_BASE_URL}/documents/${id}`, { method: 'DELETE' }, false); if (!response.ok) { let detail = `Delete failed with status ${response.status}`; try { const body = await response.json() as { detail?: string }; detail = body.detail ?? detail } catch { /* response may not contain JSON */ } throw new ApiError(detail, response.status) } },
   getDocumentDownloadUrl(id: string | number): string { return `${API_BASE_URL}/documents/${id}/download` },
   async updateDocumentVerificationStatus(id: string | number, status: Document['verification']['status'], remarks?: string): Promise<Document> { const result = await request<BackendDocument>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify({ status, remarks }) }); return mapDocument(result) },
   async runDocumentOCR(id: string | number): Promise<BackendOCRResult> { return mapOCRResult(await request<BackendOCRResult>(`/documents/${id}/ocr`, { method: 'POST' })) },

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _auth_mode() -> str:
-    return os.getenv("AUTH_MODE", "firebase").lower()
+    return os.getenv("AUTH_MODE", "development").lower()
 
 
 def _admin_uids() -> set[str]:

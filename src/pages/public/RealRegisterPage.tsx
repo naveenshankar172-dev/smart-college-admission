@@ -19,7 +19,7 @@ export function RealRegisterPage() {
     setError('')
     try {
       await api.createStudent({ name: values.name, email: values.email, phone: values.phone, password: values.password, course: values.course === 'Other' ? values.otherCourse : values.course, academicYear: values.academicYear, academicScore: 0, city: '' })
-      navigate('/login')
+      navigate('/login', { replace: true, state: { successMessage: 'Registration successful. Please sign in with your email and password.' } })
     } catch (reason: unknown) {
       setError(reason instanceof ApiError ? reason.message : 'Registration could not be completed.')
     } finally {

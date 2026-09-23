@@ -1,8 +1,8 @@
 const STUDENT_ID_KEY = 'admitflow.studentId'
 const ROLE_KEY = 'admitflow.role'
 
-export function setStudentSession(studentId: string): void {
-  window.localStorage.setItem(STUDENT_ID_KEY, studentId)
+export function setStudentSession(studentId: string | number): void {
+  window.localStorage.setItem(STUDENT_ID_KEY, String(studentId))
   window.localStorage.setItem(ROLE_KEY, 'student')
 }
 
@@ -20,6 +20,18 @@ export function getCurrentStudentId(): number {
 export function getCurrentRole(): 'student' | 'admin' | null {
   const role = window.localStorage.getItem(ROLE_KEY)
   return role === 'student' || role === 'admin' ? role : null
+}
+
+export function hasStudentSession(): boolean {
+  try {
+    return Boolean(getCurrentStudentId())
+  } catch {
+    return false
+  }
+}
+
+export function hasAdminSession(): boolean {
+  return getCurrentRole() === 'admin'
 }
 
 export function clearSession(): void {

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import crud, schemas
 from ..database import get_db
+from ..models import Student
 from .auth import require_admin, require_development_mode, require_student
 
 router = APIRouter(prefix="/students", tags=["students"])
@@ -15,6 +16,9 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
 
 @router.post("", response_model=schemas.StudentRead, status_code=status.HTTP_201_CREATED)
 def create_student(payload: schemas.StudentCreate, db: Session = Depends(get_db), _development=Depends(require_development_mode)):
+    email = str(payload.email).strip().lower()
+    if db.query(Student).filter(Student.email.ilike(email)).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A student already exists for this email.")
     return crud.create_student(db, payload)
 
 
